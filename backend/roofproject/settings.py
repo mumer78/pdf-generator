@@ -21,7 +21,7 @@ SECRET_KEY = _read_secret_key()
 
 DEBUG = False
 
-ALLOWED_HOSTS = ["pdfmakerr.pythonanywhere.com"]
+ALLOWED_HOSTS = ["pdfmakerr.pythonanywhere.com", "localhost", "127.0.0.1"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -39,6 +39,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -52,7 +53,14 @@ ROOT_URLCONF = "roofproject.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR.parent / "frontend" / "build"],
+        # Look for React's index.html — try multiple candidate locations
+        "DIRS": [
+            d for d in [
+                BASE_DIR.parent / "frontend" / "build",   # repo_root/frontend/build
+                BASE_DIR / "frontend" / "build",          # backend/frontend/build
+                BASE_DIR / "templates",                   # backend/templates
+            ] if d.exists()
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -86,9 +94,18 @@ TIME_ZONE = "America/Toronto"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Only include STATICFILES_DIRS entries that actually exist
+_extra_static = [
+    BASE_DIR / "static",
+    BASE_DIR.parent / "frontend" / "build" / "static",   # repo_root/frontend/build/static
+    BASE_DIR / "frontend" / "build" / "static",          # backend/frontend/build/static
+]
+STATICFILES_DIRS = [d for d in _extra_static if d.exists()]
+
+# WhiteNoise: serve static files efficiently without a separate web server
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

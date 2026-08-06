@@ -9,8 +9,10 @@ urlpatterns = [
     path("api/", include("inspections.urls")),
 ]
 
+# Always serve media files (PythonAnywhere doesn't proxy /media/ separately)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR / "static")
 
 # Catch-all: let React Router handle any route Django doesn't recognize.
