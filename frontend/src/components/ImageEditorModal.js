@@ -323,24 +323,81 @@ export default function ImageEditorModal({
     e.target.value = ""; // allow re-picking the same file
   };
 
-  // ── Mouse helpers (resizing, rotating, drawing) ──────────────────────────
+  // ── Touch / Mouse helpers ─────────────────────────────────────────────────
+  const pinchRef = useRef(null); // { dist, midX, midY, startPanX, startPanY, startZoom }
+
+  /** Normalise a mouse OR touch event to {clientX, clientY} */
+  const normEvent = (e) => {
+    if (e.touches && e.touches.length > 0) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    }
+    return e;
+  };
+
   const getPos = (e) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
+    const ne = normEvent(e);
     const rect = canvasRef.current.getBoundingClientRect();
     return {
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100,
+      x: ((ne.clientX - rect.left) / rect.width) * 100,
+      y: ((ne.clientY - rect.top) / rect.height) * 100,
     };
   };
 
   const getPixelPos = (e) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
+    const ne = normEvent(e);
     const rect = canvasRef.current.getBoundingClientRect();
     const { width: w, height: h } = canvasDimensions;
     return {
-      x: ((e.clientX - rect.left) / rect.width) * w,
-      y: ((e.clientY - rect.top) / rect.height) * h,
+      x: ((ne.clientX - rect.left) / rect.width) * w,
+      y: ((ne.clientY - rect.top) / rect.height) * h,
     };
+  };
+
+  /** Touch → synthetic mouse for single-finger gestures */
+  const mkMouse = (touch) => ({ clientX: touch.clientX, clientY: touch.clientY });
+
+  const handleTouchStart = (e) => {
+    if (cropMode) return;
+    if (e.touches.length === 2) {
+      // Pinch-to-zoom start
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      pinchRef.current = {
+        dist,
+        startZoom: zoom,
+        startPanX: panPos.x,
+        startPanY: panPos.y,
+      };
+      return;
+    }
+    pinchRef.current = null;
+    handleMouseDown({ ...e, ...mkMouse(e.touches[0]) });
+  };
+
+  const handleTouchMove = (e) => {
+    if (cropMode) return;
+    e.preventDefault(); // stop page scroll while editing
+    if (e.touches.length === 2 && pinchRef.current) {
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const scale = dist / pinchRef.current.dist;
+      const newZoom = Math.min(4, Math.max(1, Math.round(pinchRef.current.startZoom * scale * 100) / 100));
+      setZoom(newZoom);
+      if (newZoom === 1) setPanPos({ x: 0, y: 0 });
+      return;
+    }
+    if (e.touches.length === 1) {
+      handleMouseMove({ ...e, ...mkMouse(e.touches[0]) });
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (cropMode) return;
+    pinchRef.current = null;
+    const touch = e.changedTouches[0];
+    handleMouseUp({ ...e, ...mkMouse(touch) });
   };
 
   const getHandleHit = (mx, my, shape, w, h) => {
@@ -865,10 +922,14 @@ export default function ImageEditorModal({
                     style={{
                       transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${zoom})`,
                       transformOrigin: "center center",
+                      touchAction: "none",
                     }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
                   />
                 </div>
               ) : (

@@ -6,6 +6,32 @@ import SiteInspectedSection from "../components/SiteInspectedSection";
 import SummarySection from "../components/SummarySection";
 import ImagePageBlock from "../components/ImagePageBlock";
 
+/**
+ * Compress an image Blob to JPEG at the given quality and max dimension.
+ * Falls back to the original blob on any error.
+ */
+const compressBlob = (blob, { maxDim = 1200, quality = 0.78 } = {}) =>
+  new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      canvas.toBlob((compressed) => resolve(compressed || blob), "image/jpeg", quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+    img.src = url;
+  });
+
 function PageToolbar({ index, page, onAddPage, onCopy, onPaste, onDelete, hasClipboard, isEndToolbar }) {
   return (
     <div className="page-toolbar">
@@ -350,9 +376,15 @@ export default function FormEditor({ mode }) {
   };
 
   const handleImageEdited = async (pageId, { slot, blob, cropData, shapes, originalFile }) => {
+    // Compress images before upload to keep payloads small on slow connections
+    const [compressedRendered, compressedOriginal] = await Promise.all([
+      compressBlob(blob, { maxDim: 1200, quality: 0.78 }),
+      originalFile ? compressBlob(originalFile, { maxDim: 1200, quality: 0.78 }) : Promise.resolve(null),
+    ]);
+
     const data = new FormData();
-    if (originalFile) data.append("original_image", originalFile);
-    data.append("rendered_image", blob, `page_${pageId}_slot_${slot}.png`);
+    if (compressedOriginal) data.append("original_image", compressedOriginal, `page_${pageId}_slot_${slot}_orig.jpg`);
+    data.append("rendered_image", compressedRendered, `page_${pageId}_slot_${slot}.jpg`);
     data.append("crop_data", JSON.stringify(cropData));
     data.append("shapes", JSON.stringify(shapes));
 
