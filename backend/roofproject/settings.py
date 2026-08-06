@@ -105,7 +105,7 @@ _extra_static = [
 STATICFILES_DIRS = [d for d in _extra_static if d.exists()]
 
 # WhiteNoise: serve static files efficiently without a separate web server
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
