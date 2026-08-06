@@ -7,11 +7,21 @@ from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "dev-secret-key-change-this-in-production"
 
-DEBUG = True
+def _read_secret_key():
+    env_path = Path.home() / ".env_roofproject"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("DJANGO_SECRET_KEY="):
+                return line.split("=", 1)[1].strip()
+    return "dev-secret-key-change-this-in-production"
 
-ALLOWED_HOSTS = ["*"]
+
+SECRET_KEY = _read_secret_key()
+
+DEBUG = False
+
+ALLOWED_HOSTS = ["pdfmakerr.pythonanywhere.com"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
