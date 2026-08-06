@@ -375,7 +375,7 @@ export default function FormEditor({ mode }) {
   const saveAndViewPdf = async () => {
     await saveAll();
     const token = localStorage.getItem("access_token");
-    const response = await fetch(`http://localhost:8000/api/forms/${form.id}/pdf/`, {
+    const response = await fetch(`https://pdfmakerr.pythonanywhere.com/api/forms/${form.id}/pdf/`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
