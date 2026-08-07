@@ -131,13 +131,13 @@ def _styles():
         spaceAfter=8,
     ))
 
-    # Summary / Issue-Concern body text — Arimo Regular 14 pt, Left-aligned, no indent
+    # Summary / Issue-Concern body text — Arimo Regular 14 pt, Justified, no indent
     styles.add(ParagraphStyle(
         name="BodyJustify",
         fontName=_font("Arimo-Regular", "Helvetica"),
         fontSize=14,
         leading=20,
-        alignment=TA_LEFT,
+        alignment=TA_JUSTIFY,
         leftIndent=20,
     ))
 

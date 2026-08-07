@@ -121,6 +121,35 @@ export default function ImagePageBlock({
       ? "Main Photo Page"
       : "1-Image Page";
 
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedText = (e.clipboardData || window.clipboardData).getData("text");
+    // Standardize line endings
+    let clean = pastedText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    // Preserve paragraph breaks (double newlines or more)
+    clean = clean.replace(/\n\n+/g, "___PARAGRAPH_BREAK___");
+    // Replace single newlines with space
+    clean = clean.replace(/\n/g, " ");
+    // Restore paragraph breaks
+    clean = clean.replace(/___PARAGRAPH_BREAK___/g, "\n\n");
+    // Remove extra spaces
+    clean = clean.replace(/ {2,}/g, " ");
+
+    const target = e.target;
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    const currentValue = target.value;
+    const newValue = currentValue.substring(0, start) + clean + currentValue.substring(end);
+
+    onChangeText(page.id, newValue);
+
+    setTimeout(() => {
+      if (target) {
+        target.selectionStart = target.selectionEnd = start + clean.length;
+      }
+    }, 0);
+  };
+
   return (
     <div className="section-block image-page-block">
       <h4 className="page-layout-label">{layoutLabel}</h4>
@@ -147,6 +176,7 @@ export default function ImagePageBlock({
         rows={3}
         value={page.issue_concern || ""}
         onChange={(e) => onChangeText(page.id, e.target.value)}
+        onPaste={handlePaste}
         placeholder="Describe the issue/concern for this photo..."
         style={{ overflowY: "hidden", resize: "none" }}
       />
