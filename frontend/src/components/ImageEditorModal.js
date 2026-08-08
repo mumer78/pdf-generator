@@ -4,9 +4,6 @@ import "react-image-crop/dist/ReactCrop.css";
 
 // Fixed output frame aspect ratio (width / height) for non-main pages.
 export const FRAME_ASPECT = 16 / 10;
-// Rendered at 2x resolution so photos stay sharp in the final PDF.
-export const FRAME_WIDTH = 1200;
-export const FRAME_HEIGHT = Math.round(FRAME_WIDTH / FRAME_ASPECT);
 // Corner radius applied to the exported PNG.
 export const CORNER_RADIUS = 36;
 
@@ -56,7 +53,8 @@ export default function ImageEditorModal({
   const canvasRef = useRef(null);
   const baseImgRef = useRef(null); // cached decoded base image for synchronous redraws
   const [workingCanvasUrl, setWorkingCanvasUrl] = useState(null);
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: FRAME_WIDTH, height: FRAME_HEIGHT });
+  // Placeholder dims until the real image loads and applyRenderCrop sets the actual size.
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1200, height: 750 });
   const [shapes, setShapes] = useState(initialShapes || []);
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
@@ -84,7 +82,7 @@ export default function ImageEditorModal({
     }
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(baseImg, 0, 0, w, h);
-    
+
     shapesToDraw.forEach((s, idx) => {
       ctx.save();
       const cx = (s.x / 100) * w;
@@ -116,8 +114,8 @@ export default function ImageEditorModal({
         const hs = 8; // handle size
 
         const drawHandle = (hx, hy) => {
-          ctx.fillRect(hx - hs/2, hy - hs/2, hs, hs);
-          ctx.strokeRect(hx - hs/2, hy - hs/2, hs, hs);
+          ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+          ctx.strokeRect(hx - hs / 2, hy - hs / 2, hs, hs);
         };
 
         // Resize handles
@@ -200,7 +198,7 @@ export default function ImageEditorModal({
   }, [shapes, canvasDimensions, drawCanvas, selectedShapeIndex]);
 
   // ── Helper: render a crop region (or full image) to working canvas ─────
-  // Returns the data URL and dimensions so caller can cache base img.
+  // Uses the image's NATIVE resolution — no upscale, no forced downscale.
   function applyRenderCrop(img, cropData) {
     let sx, sy, sw, sh;
     if (cropData) {
@@ -212,9 +210,8 @@ export default function ImageEditorModal({
       sx = 0; sy = 0;
       sw = img.naturalWidth; sh = img.naturalHeight;
     }
-    const aspect = sw / sh;
-    const w = FRAME_WIDTH;
-    const h = freeAspect ? Math.round(FRAME_WIDTH / aspect) : FRAME_HEIGHT;
+    const w = Math.round(sw);
+    const h = freeAspect ? Math.round(sh) : Math.round(w / FRAME_ASPECT);
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
@@ -235,15 +232,14 @@ export default function ImageEditorModal({
     const sy = completedCrop.y * scaleY;
     const sw = completedCrop.width * scaleX;
     const sh = completedCrop.height * scaleY;
-    const aspect = sw / sh;
-    const w = FRAME_WIDTH;
-    const h = freeAspect ? Math.round(FRAME_WIDTH / aspect) : FRAME_HEIGHT;
+    const w = Math.round(sw);
+    const h = freeAspect ? Math.round(sh) : Math.round(w / FRAME_ASPECT);
 
     // Persist crop as % for future re-entry into crop mode
     const newCropData = {
-      x:      (completedCrop.x      / (image.width  || 1)) * 100,
-      y:      (completedCrop.y      / (image.height || 1)) * 100,
-      width:  (completedCrop.width  / (image.width  || 1)) * 100,
+      x: (completedCrop.x / (image.width || 1)) * 100,
+      y: (completedCrop.y / (image.height || 1)) * 100,
+      width: (completedCrop.width / (image.width || 1)) * 100,
       height: (completedCrop.height / (image.height || 1)) * 100,
     };
 
@@ -514,7 +510,7 @@ export default function ImageEditorModal({
     if (!canvasRef.current || cropMode) return;
     const { width: w, height: h } = canvasDimensions;
     const pixPos = getPixelPos(e);
-    
+
     if (selectedShapeIndex !== null) {
       const activeShape = shapes[selectedShapeIndex];
       const hit = getHandleHit(pixPos.x, pixPos.y, activeShape, w, h);

@@ -376,15 +376,9 @@ export default function FormEditor({ mode }) {
   };
 
   const handleImageEdited = async (pageId, { slot, blob, cropData, shapes, originalFile }) => {
-    // Compress images before upload to keep payloads small on slow connections
-    const [compressedRendered, compressedOriginal] = await Promise.all([
-      compressBlob(blob, { maxDim: 1200, quality: 0.78 }),
-      originalFile ? compressBlob(originalFile, { maxDim: 1200, quality: 0.78 }) : Promise.resolve(null),
-    ]);
-
     const data = new FormData();
-    if (compressedOriginal) data.append("original_image", compressedOriginal, `page_${pageId}_slot_${slot}_orig.jpg`);
-    data.append("rendered_image", compressedRendered, `page_${pageId}_slot_${slot}.jpg`);
+    if (originalFile) data.append("original_image", originalFile, `page_${pageId}_slot_${slot}_orig.jpg`);
+    data.append("rendered_image", blob, `page_${pageId}_slot_${slot}.png`);
     data.append("crop_data", JSON.stringify(cropData));
     data.append("shapes", JSON.stringify(shapes));
 
