@@ -10,6 +10,7 @@ function ImageSlot({
   onCopyImage,
   onPasteImage,
   onDeleteImage,
+  progress, // number 0-100, or undefined when not uploading
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
@@ -18,6 +19,8 @@ function ImageSlot({
   const sourceForModal = pendingFile
     ? URL.createObjectURL(pendingFile)
     : image?.original_image || null;
+
+  const isUploading = typeof progress === "number";
 
   const onPickFile = (e) => {
     const file = e.target.files[0];
@@ -57,6 +60,15 @@ function ImageSlot({
           <button className="btn-secondary btn-edit-photo" onClick={() => setModalOpen(true)}>
             ✏ Edit Photo
           </button>
+
+          {isUploading && (
+            <div className="upload-progress-overlay">
+              <div className="upload-progress-bar">
+                <div className="upload-progress-fill" style={{ width: `${progress}%` }} />
+              </div>
+              <span className="upload-progress-text">Saving… {progress}%</span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="image-upload-wrapper">
@@ -68,6 +80,12 @@ function ImageSlot({
             <button className="btn-primary btn-sm btn-paste-empty" onClick={() => onPasteImage(slot)}>
               📋 Paste Image here
             </button>
+          )}
+          {isUploading && (
+            <div className="upload-progress-bar">
+              <div className="upload-progress-fill" style={{ width: `${progress}%` }} />
+              <span className="upload-progress-text">{progress}%</span>
+            </div>
           )}
         </div>
       )}
@@ -91,6 +109,7 @@ function ImageSlot({
 
 export default function ImagePageBlock({
   page,
+  uploadProgress,
   onChangeText,
   onImageEdited,
   imageClipboard,
@@ -166,6 +185,7 @@ export default function ImagePageBlock({
             onCopyImage={onCopyImage}
             onPasteImage={onPasteImage}
             onDeleteImage={onDeleteImage}
+            progress={uploadProgress ? uploadProgress[`${page.id}-${slot}`] : undefined}
           />
         ))}
       </div>

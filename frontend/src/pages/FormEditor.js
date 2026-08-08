@@ -6,32 +6,6 @@ import SiteInspectedSection from "../components/SiteInspectedSection";
 import SummarySection from "../components/SummarySection";
 import ImagePageBlock from "../components/ImagePageBlock";
 
-/**
- * Compress an image Blob to JPEG at the given quality and max dimension.
- * Falls back to the original blob on any error.
- */
-const compressBlob = (blob, { maxDim = 1200, quality = 0.78 } = {}) =>
-  new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        const ratio = Math.min(maxDim / width, maxDim / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-      canvas.toBlob((compressed) => resolve(compressed || blob), "image/jpeg", quality);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
-    img.src = url;
-  });
-
 function PageToolbar({ index, page, onAddPage, onCopy, onPaste, onDelete, hasClipboard, isEndToolbar }) {
   return (
     <div className="page-toolbar">
@@ -69,6 +43,7 @@ export default function FormEditor({ mode }) {
   const [savedMsg, setSavedMsg] = useState("");
   const [clipboard, setClipboard] = useState(null); // stores copied page structure
   const [imageClipboard, setImageClipboard] = useState(null); // stores copied image slot data
+  const [uploadProgress, setUploadProgress] = useState({}); // { "pageId-slot": percent }
 
   const endpointBase = mode === "key" ? `forms/by-key/${key}/` : `forms/${id}/`;
 
@@ -375,6 +350,8 @@ export default function FormEditor({ mode }) {
     });
   };
 
+  // Uploads original_image at full resolution (no compression) and tracks
+  // upload progress per page/slot so the UI can show a live percentage.
   const handleImageEdited = async (pageId, { slot, blob, cropData, shapes, originalFile }) => {
     const data = new FormData();
     if (originalFile) data.append("original_image", originalFile, `page_${pageId}_slot_${slot}_orig.jpg`);
@@ -382,20 +359,37 @@ export default function FormEditor({ mode }) {
     data.append("crop_data", JSON.stringify(cropData));
     data.append("shapes", JSON.stringify(shapes));
 
-    const res = await api.post(`pages/${pageId}/images/${slot}/`, data, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const progressKey = `${pageId}-${slot}`;
+    setUploadProgress((prev) => ({ ...prev, [progressKey]: 0 }));
 
-    setForm({
-      ...form,
-      pages: form.pages.map((p) => {
-        if (p.id !== pageId) return p;
-        const otherImages = (p.images || []).filter((img) => img.slot !== slot);
-        // If slot 2 is uploaded on a single layout page, auto-convert page layout to double
-        const newLayout = (slot === 2 && p.layout === "single") ? "double" : p.layout;
-        return { ...p, layout: newLayout, images: [...otherImages, res.data] };
-      }),
-    });
+    try {
+      const res = await api.post(`pages/${pageId}/images/${slot}/`, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return;
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress((prev) => ({ ...prev, [progressKey]: percent }));
+        },
+      });
+
+      setForm((prevForm) => ({
+        ...prevForm,
+        pages: prevForm.pages.map((p) => {
+          if (p.id !== pageId) return p;
+          const otherImages = (p.images || []).filter((img) => img.slot !== slot);
+          // If slot 2 is uploaded on a single layout page, auto-convert page layout to double
+          const newLayout = (slot === 2 && p.layout === "single") ? "double" : p.layout;
+          return { ...p, layout: newLayout, images: [...otherImages, res.data] };
+        }),
+      }));
+    } finally {
+      // Clear progress once done (success or failure)
+      setUploadProgress((prev) => {
+        const next = { ...prev };
+        delete next[progressKey];
+        return next;
+      });
+    }
   };
 
   const saveAndViewPdf = async () => {
@@ -449,6 +443,7 @@ export default function FormEditor({ mode }) {
             )}
             <ImagePageBlock
               page={page}
+              uploadProgress={uploadProgress}
               onChangeText={changePageText}
               onImageEdited={handleImageEdited}
               onChangeHeight={changePageHeight}
