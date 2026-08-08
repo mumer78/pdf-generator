@@ -5,7 +5,7 @@ import "react-image-crop/dist/ReactCrop.css";
 // Fixed output frame aspect ratio (width / height) for non-main pages.
 export const FRAME_ASPECT = 16 / 10;
 // Rendered at 2x resolution so photos stay sharp in the final PDF.
-export const FRAME_WIDTH = 1800;
+export const FRAME_WIDTH = 1200;
 export const FRAME_HEIGHT = Math.round(FRAME_WIDTH / FRAME_ASPECT);
 // Corner radius applied to the exported PNG.
 export const CORNER_RADIUS = 36;
