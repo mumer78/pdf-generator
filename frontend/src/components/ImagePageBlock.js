@@ -15,7 +15,13 @@ function ImageSlot({
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
 
-  const displayUrl = image?.rendered_image || image?.original_image || null;
+  // Cache-bust: append a fresh query param whenever `image` changes so the
+  // browser re-fetches the file instead of showing a stale cached version
+  // at the same URL (filenames are fixed per page/slot, so the URL alone
+  // doesn't change between edits).
+  const rawUrl = image?.rendered_image || image?.original_image || null;
+  const displayUrl = rawUrl ? `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}v=${Date.now()}` : null;
+
   const sourceForModal = pendingFile
     ? URL.createObjectURL(pendingFile)
     : image?.original_image || null;
