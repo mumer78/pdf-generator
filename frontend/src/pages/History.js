@@ -5,6 +5,7 @@ import api from "../api";
 export default function History() {
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
   const navigate = useNavigate();
 
   const load = async () => {
@@ -22,6 +23,25 @@ export default function History() {
   const createNew = async () => {
     const res = await api.post("forms/", {});
     navigate(`/form/${res.data.id}`);
+  };
+
+  const deleteForm = async (e, form) => {
+    e.stopPropagation(); // don't trigger the card's navigate onClick
+    const confirmed = window.confirm(
+      `Delete inspection "${form.address || form.share_key}"? This will permanently remove the report and all its photos. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(form.id);
+    try {
+      await api.delete(`forms/${form.id}/`);
+      setForms((prev) => prev.filter((f) => f.id !== form.id));
+    } catch (err) {
+      console.error("Failed to delete inspection", err);
+      alert("Failed to delete inspection. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -57,6 +77,14 @@ export default function History() {
             key={f.id}
             onClick={() => navigate(`/form/${f.id}`)}
           >
+            <button
+              className="history-delete-btn"
+              title="Delete inspection"
+              onClick={(e) => deleteForm(e, f)}
+              disabled={deletingId === f.id}
+            >
+              {deletingId === f.id ? "…" : "🗑"}
+            </button>
             <div className="history-key">🔑 {f.share_key}</div>
             <div className="history-address">{f.address || "(no address yet)"}</div>
             <div className="history-meta">

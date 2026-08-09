@@ -197,6 +197,32 @@ button { cursor: pointer; font-family: inherit; transition: all .15s; }
   background: rgba(255,255,255,.2);
   margin: 0 4px;
 }
+
+.history-delete-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(192, 57, 43, 0.08);
+  border: none;
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  z-index: 5;
+}
+.history-delete-btn:hover {
+  background: rgba(192, 57, 43, 0.18);
+}
+.history-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ── Upload progress ───────────────────────────────────────────── */
 .upload-progress-overlay {
   position: absolute;
