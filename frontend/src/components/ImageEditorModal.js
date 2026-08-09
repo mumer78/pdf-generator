@@ -781,22 +781,52 @@ export default function ImageEditorModal({
 
   // ── Save ───────────────────────────────────────────────────────────────
   const saveImage = () => {
-    if (!canvasRef.current || !workingCanvasUrl) return;
-    // Final synchronous render before export
-    if (baseImgRef.current) drawCanvas(baseImgRef.current, shapes, canvasDimensions);
-    setTimeout(() => {
-      const { width: w, height: h } = canvasDimensions;
-      const rounded = document.createElement("canvas");
-      rounded.width = w; rounded.height = h;
-      const rctx = rounded.getContext("2d");
-      roundedRectPath(rctx, 0, 0, w, h, CORNER_RADIUS);
-      rctx.clip();
-      rctx.drawImage(canvasRef.current, 0, 0);
-      rounded.toBlob((blob) => {
-        const cropData = currentCropData || { x: 0, y: 0, width: 100, height: 100 };
-        onSave({ blob, cropData, shapes, newOriginalFile: changedFile || null });
-      }, "image/png");
-    }, 50);
+    if (!canvasRef.current || !workingCanvasUrl || !baseImgRef.current) return;
+    if (drawingRef.current) return; // ignore save while a circle is still being drawn
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const { width: w, height: h } = canvasDimensions;
+
+        // Render a CLEAN copy on an offscreen canvas: base image + plain
+        // circles only. Deliberately does NOT use drawCanvas() here, since
+        // drawCanvas draws selection handles/bounding box for the currently
+        // selected shape, and could also reflect an in-progress live-preview
+        // stroke if state hasn't fully settled. Building it fresh guarantees
+        // no editor UI ever leaks into the exported image.
+        const clean = document.createElement("canvas");
+        clean.width = w; clean.height = h;
+        const cctx = clean.getContext("2d");
+        cctx.drawImage(baseImgRef.current, 0, 0, w, h);
+        shapes.forEach((s) => {
+          cctx.save();
+          const cx = (s.x / 100) * w;
+          const cy = (s.y / 100) * h;
+          const rx = (s.rx / 100) * w;
+          const ry = (s.ry / 100) * h;
+          const angle = s.angle || 0;
+          cctx.translate(cx, cy);
+          cctx.rotate(angle);
+          cctx.beginPath();
+          cctx.ellipse(0, 0, rx, ry, 0, 0, 2 * Math.PI);
+          cctx.strokeStyle = "#e63946";
+          cctx.lineWidth = s.thickness;
+          cctx.stroke();
+          cctx.restore();
+        });
+
+        const rounded = document.createElement("canvas");
+        rounded.width = w; rounded.height = h;
+        const rctx = rounded.getContext("2d");
+        roundedRectPath(rctx, 0, 0, w, h, CORNER_RADIUS);
+        rctx.clip();
+        rctx.drawImage(clean, 0, 0);
+        rounded.toBlob((blob) => {
+          const cropData = currentCropData || { x: 0, y: 0, width: 100, height: 100 };
+          onSave({ blob, cropData, shapes, newOriginalFile: changedFile || null });
+        }, "image/png");
+      }, 50);
+    });
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
