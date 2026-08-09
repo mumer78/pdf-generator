@@ -4,6 +4,10 @@ import "react-image-crop/dist/ReactCrop.css";
 
 // Fixed output frame aspect ratio (width / height) for non-main pages.
 export const FRAME_ASPECT = 16 / 10;
+// Cap the working canvas at this width so the editor matches the resolution
+// that actually gets uploaded (see compressBlob maxDim in FormEditor.js).
+// Prevents both unnecessary upscale-blur AND huge in-browser canvases.
+export const MAX_CANVAS_DIM = 2400;
 // Corner radius applied to the exported PNG.
 export const CORNER_RADIUS = 36;
 
@@ -198,7 +202,9 @@ export default function ImageEditorModal({
   }, [shapes, canvasDimensions, drawCanvas, selectedShapeIndex]);
 
   // ── Helper: render a crop region (or full image) to working canvas ─────
-  // Uses the image's NATIVE resolution — no upscale, no forced downscale.
+  // Uses the image's native resolution, capped at MAX_CANVAS_DIM so the
+  // editor never upscales past the source AND never works at an
+  // unnecessarily huge resolution that won't survive upload compression anyway.
   function applyRenderCrop(img, cropData) {
     let sx, sy, sw, sh;
     if (cropData) {
@@ -210,8 +216,10 @@ export default function ImageEditorModal({
       sx = 0; sy = 0;
       sw = img.naturalWidth; sh = img.naturalHeight;
     }
-    const w = Math.round(sw);
-    const h = freeAspect ? Math.round(sh) : Math.round(w / FRAME_ASPECT);
+    const w = Math.min(Math.round(sw), MAX_CANVAS_DIM);
+    const h = freeAspect
+      ? Math.round(sh * (w / sw))
+      : Math.round(w / FRAME_ASPECT);
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
@@ -232,8 +240,10 @@ export default function ImageEditorModal({
     const sy = completedCrop.y * scaleY;
     const sw = completedCrop.width * scaleX;
     const sh = completedCrop.height * scaleY;
-    const w = Math.round(sw);
-    const h = freeAspect ? Math.round(sh) : Math.round(w / FRAME_ASPECT);
+    const w = Math.min(Math.round(sw), MAX_CANVAS_DIM);
+    const h = freeAspect
+      ? Math.round(sh * (w / sw))
+      : Math.round(w / FRAME_ASPECT);
 
     // Persist crop as % for future re-entry into crop mode
     const newCropData = {
