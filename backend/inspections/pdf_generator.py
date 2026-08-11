@@ -222,19 +222,19 @@ def _draw_later_pages(canvas, doc):
 # ── Rounded-corner image flowable ─────────────────────────────────────────────
 
 def _get_optimized_image(path):
-    """Loads, downscales to max 800px, and compresses image in memory to
-    keep PDF generation fast and file sizes small even with many photos."""
+    """Loads, downscales to max 1400px, and compresses image in memory to
+    balance sharpness with keeping the overall PDF well under size/transfer limits."""
     try:
         from PIL import Image as PILImage
         im = PILImage.open(path)
-        max_size = 800
+        max_size = 1400
         if im.width > max_size or im.height > max_size:
             im.thumbnail((max_size, max_size), PILImage.Resampling.LANCZOS)
 
         buf = io.BytesIO()
         if im.mode in ("RGBA", "P", "LA"):
             im = im.convert("RGB")
-        im.save(buf, format="JPEG", quality=60, optimize=True)
+        im.save(buf, format="JPEG", quality=80, optimize=True)
         buf.seek(0)
         return buf
     except Exception:
